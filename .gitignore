@@ -1,0 +1,10 @@
+node_modules/
+*.log
+.DS_Store
+
+# build output (uploaded as release assets, not committed)
+main.js
+*.js.map
+
+# data
+data.json

@@ -1,0 +1,10 @@
+{
+  "id": "notion-view",
+  "name": "Notion View",
+  "version": "0.1.0",
+  "minAppVersion": "1.4.0",
+  "description": "Notion-style page tree sidebar: a note and its same-name folder become one expandable page, with quick sub-page creation and filtering.",
+  "author": "Jimmy-web169",
+  "authorUrl": "https://github.com/Jimmy-web169",
+  "isDesktopOnly": false
+}
