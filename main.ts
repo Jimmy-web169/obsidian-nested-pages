@@ -157,18 +157,119 @@ const ICON_COLORS: { name: string; value: string }[] = [
   { name: "Red", value: "#e03e3e" },
 ];
 
-/** Curated lucide icons available out of the box. */
-const ICON_LIBRARY: string[] = [
-  "file-text", "folder", "book", "book-open", "bookmark", "star",
-  "heart", "flame", "rocket", "brain", "lightbulb", "graduation-cap",
-  "code", "terminal", "database", "server", "cloud", "globe",
-  "cpu", "hard-drive", "link", "image", "camera", "music",
-  "video", "calendar", "clock", "flag", "tag", "pin",
-  "map", "home", "building", "briefcase", "wrench", "hammer",
-  "settings", "shield", "lock", "key", "mail", "message-circle",
-  "phone", "user", "users", "wallet", "bar-chart-2", "trending-up",
-  "gift", "coffee", "leaf", "sun", "moon", "zap",
-  "target", "trophy", "gamepad-2", "palette", "pencil", "search",
+/** Built-in lucide icon library, grouped Notion-style. */
+const ICON_CATEGORIES: { label: string; icons: string[] }[] = [
+  {
+    label: "Documents",
+    icons: [
+      "file", "file-text", "files", "file-code", "file-search", "file-plus",
+      "file-check", "file-x", "folder", "folder-open", "folder-tree", "archive",
+      "book", "book-open", "book-marked", "notebook", "newspaper", "scroll",
+      "sticky-note", "clipboard", "clipboard-list", "clipboard-check", "pencil",
+      "pen-tool", "highlighter", "eraser", "paperclip", "printer", "bookmark",
+    ],
+  },
+  {
+    label: "Tech & code",
+    icons: [
+      "code", "code-2", "terminal", "braces", "bug", "cpu", "database",
+      "server", "hard-drive", "memory-stick", "keyboard", "mouse", "monitor",
+      "laptop", "smartphone", "tablet", "watch", "router", "wifi", "bluetooth",
+      "usb", "plug", "battery", "battery-charging", "cloud", "cloud-upload",
+      "cloud-download", "git-branch", "git-commit", "git-merge",
+      "git-pull-request", "github", "globe", "network", "binary", "qr-code",
+      "satellite", "bot", "blocks", "settings", "search", "link",
+    ],
+  },
+  {
+    label: "Business",
+    icons: [
+      "briefcase", "building", "building-2", "factory", "store", "landmark",
+      "wallet", "credit-card", "banknote", "coins", "dollar-sign", "bitcoin",
+      "piggy-bank", "receipt", "calculator", "bar-chart-2", "line-chart",
+      "pie-chart", "trending-up", "trending-down", "target", "award", "scale",
+      "presentation", "gavel", "badge-check",
+    ],
+  },
+  {
+    label: "Communication",
+    icons: [
+      "mail", "mail-open", "inbox", "send", "message-circle", "message-square",
+      "messages-square", "phone", "phone-call", "megaphone", "bell",
+      "bell-ring", "rss", "share-2", "at-sign", "hash", "voicemail",
+    ],
+  },
+  {
+    label: "Media & art",
+    icons: [
+      "image", "camera", "video", "film", "clapperboard", "music",
+      "headphones", "mic", "speaker", "volume-2", "play", "pause", "tv",
+      "radio", "palette", "brush", "paintbrush", "aperture", "disc",
+      "guitar", "piano", "drum",
+    ],
+  },
+  {
+    label: "Nature & weather",
+    icons: [
+      "leaf", "sprout", "trees", "tree-pine", "flower", "flower-2", "sun",
+      "moon", "star", "sparkles", "cloud-rain", "cloud-snow",
+      "cloud-lightning", "snowflake", "wind", "rainbow", "umbrella",
+      "droplet", "droplets", "waves", "mountain", "mountain-snow", "sunrise",
+      "sunset", "earth", "flame", "zap", "thermometer",
+    ],
+  },
+  {
+    label: "Animals",
+    icons: [
+      "bird", "cat", "dog", "fish", "rabbit", "rat", "snail", "squirrel",
+      "turtle", "egg", "paw-print", "shell", "bone",
+    ],
+  },
+  {
+    label: "Food & drink",
+    icons: [
+      "apple", "banana", "cherry", "citrus", "grape", "carrot", "salad",
+      "pizza", "sandwich", "croissant", "cake", "cookie", "candy", "coffee",
+      "cup-soda", "beer", "wine", "martini", "milk", "utensils",
+      "utensils-crossed", "chef-hat", "soup",
+    ],
+  },
+  {
+    label: "Travel & places",
+    icons: [
+      "home", "map", "map-pin", "compass", "navigation", "plane", "car",
+      "bus", "bike", "ship", "sailboat", "rocket", "fuel", "luggage", "tent",
+      "palmtree", "hotel", "school", "hospital", "church", "castle",
+      "warehouse", "signpost", "milestone", "footprints", "anchor",
+      "traffic-cone",
+    ],
+  },
+  {
+    label: "Objects",
+    icons: [
+      "lightbulb", "lamp", "lamp-desk", "flashlight", "key", "lock", "unlock",
+      "shield", "shield-check", "gift", "package", "box", "shopping-cart",
+      "shopping-bag", "tag", "tags", "ticket", "crown", "gem", "glasses",
+      "shirt", "clock", "alarm-clock", "timer", "hourglass", "calendar",
+      "calendar-days", "scissors", "ruler", "wrench", "hammer", "axe",
+      "magnet", "microscope", "telescope", "flask-conical", "test-tube",
+      "atom", "dna", "pill", "stethoscope", "syringe", "brain",
+      "heart-pulse", "activity", "dumbbell", "medal", "trophy", "gamepad-2",
+      "dice-5", "puzzle", "swords", "wand-2", "ghost", "skull",
+    ],
+  },
+  {
+    label: "People & symbols",
+    icons: [
+      "user", "users", "user-plus", "user-check", "baby", "smile", "laugh",
+      "frown", "meh", "angry", "heart", "heart-handshake", "thumbs-up",
+      "thumbs-down", "hand", "eye", "ear", "accessibility",
+      "person-standing", "graduation-cap", "infinity", "percent", "check",
+      "x", "alert-triangle", "alert-circle", "info", "help-circle", "flag",
+      "pin", "sparkle", "circle", "square", "triangle", "hexagon", "diamond",
+      "shapes",
+    ],
+  },
 ];
 
 class IconPickerModal extends Modal {
@@ -231,16 +332,54 @@ class IconPickerModal extends Modal {
       });
     }
 
-    // Icon grid.
-    this.gridEl = contentEl.createDiv({ cls: "nv-icon-grid" });
-    for (const name of ICON_LIBRARY) {
-      const cell = this.gridEl.createDiv({ cls: "nv-icon-cell", attr: { "aria-label": name } });
-      setIcon(cell, name);
-      cell.addEventListener("click", () => {
-        this.submit(this.color ? `lucide:${name}:${this.color}` : `lucide:${name}`);
-      });
+    // Icon search.
+    const iconSearch = contentEl.createEl("input", {
+      type: "text",
+      cls: "nv-name-input nv-icon-search",
+      attr: { placeholder: "Search icons…" },
+    });
+
+    // Icon grid, grouped by category.
+    this.gridEl = contentEl.createDiv({ cls: "nv-icon-sections" });
+    interface Section { titleEl: HTMLElement; cells: { name: string; el: HTMLElement }[] }
+    const sections: Section[] = [];
+    for (const cat of ICON_CATEGORIES) {
+      const titleEl = this.gridEl.createDiv({ cls: "nv-icon-cat-title", text: cat.label });
+      const grid = this.gridEl.createDiv({ cls: "nv-icon-grid" });
+      const cells: Section["cells"] = [];
+      for (const name of cat.icons) {
+        const cell = grid.createDiv({ cls: "nv-icon-cell", attr: { "aria-label": name } });
+        setIcon(cell, name);
+        // Names missing from Obsidian's bundled lucide set render empty — drop them.
+        if (cell.childElementCount === 0) {
+          cell.remove();
+          continue;
+        }
+        cell.addEventListener("click", () => {
+          this.submit(this.color ? `lucide:${name}:${this.color}` : `lucide:${name}`);
+        });
+        cells.push({ name, el: cell });
+      }
+      sections.push({ titleEl, cells });
     }
     this.recolorGrid();
+
+    iconSearch.addEventListener("input", () => {
+      const q = iconSearch.value.trim().toLowerCase();
+      for (const section of sections) {
+        let visible = 0;
+        for (const { name, el } of section.cells) {
+          const show = !q || name.includes(q);
+          el.toggleClass("nv-hidden", !show);
+          if (show) visible++;
+        }
+        section.titleEl.toggleClass("nv-hidden", visible === 0);
+        (section.titleEl.nextElementSibling as HTMLElement | null)?.toggleClass?.(
+          "nv-hidden",
+          visible === 0
+        );
+      }
+    });
 
     // Footer.
     const footer = contentEl.createDiv({ cls: "nv-confirm-row" });
