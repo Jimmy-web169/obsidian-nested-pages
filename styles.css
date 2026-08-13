@@ -148,8 +148,36 @@
 
 .nv-color-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin: 12px 0 4px;
+}
+
+input.nv-color-custom {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 50%;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  background: conic-gradient(#e03e3e, #dfab01, #84cc16, #06b6d4, #6366f1, #ad1a72, #e03e3e);
+}
+
+input.nv-color-custom::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+input.nv-color-custom::-webkit-color-swatch {
+  border: none;
+  border-radius: 50%;
+  opacity: 0;
+}
+
+input.nv-color-custom.nv-color-selected {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 2px;
 }
 
 .nv-color-swatch {

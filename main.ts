@@ -147,13 +147,23 @@ class NamePromptModal extends Modal {
 const ICON_COLORS: { name: string; value: string }[] = [
   { name: "Default", value: "" },
   { name: "Gray", value: "#9b9a97" },
+  { name: "Slate", value: "#64748b" },
   { name: "Brown", value: "#8a6552" },
   { name: "Orange", value: "#d9730d" },
+  { name: "Amber", value: "#f59e0b" },
   { name: "Yellow", value: "#dfab01" },
+  { name: "Lime", value: "#84cc16" },
   { name: "Green", value: "#0f7b6c" },
+  { name: "Emerald", value: "#10b981" },
+  { name: "Teal", value: "#14b8a6" },
+  { name: "Cyan", value: "#06b6d4" },
+  { name: "Sky", value: "#0ea5e9" },
   { name: "Blue", value: "#0b6e99" },
+  { name: "Indigo", value: "#6366f1" },
   { name: "Purple", value: "#6940a5" },
+  { name: "Violet", value: "#8b5cf6" },
   { name: "Pink", value: "#ad1a72" },
+  { name: "Rose", value: "#f43f5e" },
   { name: "Red", value: "#e03e3e" },
 ];
 
@@ -456,6 +466,25 @@ class IconPickerModal extends Modal {
         this.recolorGrid();
       });
     }
+
+    // Custom color: a native color picker styled as a rainbow swatch.
+    const customColor = colorRow.createEl("input", {
+      type: "color",
+      cls: "nv-color-custom",
+      attr: { "aria-label": "Custom color" },
+    });
+    if (this.color && !ICON_COLORS.some((c) => c.value === this.color)) {
+      customColor.value = this.color;
+      customColor.style.background = this.color;
+      customColor.addClass("nv-color-selected");
+    }
+    customColor.addEventListener("input", () => {
+      this.color = customColor.value;
+      customColor.style.background = customColor.value;
+      colorRow.querySelectorAll(".nv-color-selected").forEach((el) => el.removeClass("nv-color-selected"));
+      customColor.addClass("nv-color-selected");
+      this.recolorGrid();
+    });
 
     // Icon search.
     const iconSearch = iconsPane.createEl("input", {
