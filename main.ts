@@ -196,10 +196,32 @@ class NotionView extends ItemView {
       this.renderTree();
     });
 
-    const newBtn = header.createDiv({ cls: "nv-new-btn", attr: { "aria-label": "New root page" } });
+    const newBtn = header.createDiv({ cls: "nv-new-btn", attr: { "aria-label": "New page or section" } });
     setIcon(newBtn, "plus");
-    newBtn.addEventListener("click", () => {
-      this.promptName("New page name", (raw) => void this.createPage("", raw));
+    newBtn.addEventListener("click", (ev) => {
+      const menu = new Menu();
+      menu.addItem((i) =>
+        i.setTitle("New page (top level)").setIcon("file-plus").onClick(() => {
+          this.promptName("New page name", (raw) => void this.createPage("", raw));
+        })
+      );
+      menu.addItem((i) =>
+        i.setTitle("New section (top level)").setIcon("folder-plus").onClick(() => {
+          this.promptName("New section name", (raw) => void this.createSection("", raw));
+        })
+      );
+      menu.addSeparator();
+      menu.addItem((i) =>
+        i.setTitle("New page under…").setIcon("file-plus").onClick(() => {
+          this.pickParentThen("New page name", (dir, raw) => void this.createPage(dir, raw));
+        })
+      );
+      menu.addItem((i) =>
+        i.setTitle("New section under…").setIcon("folder-plus").onClick(() => {
+          this.pickParentThen("New section name", (dir, raw) => void this.createSection(dir, raw));
+        })
+      );
+      menu.showAtMouseEvent(ev);
     });
 
     this.treeEl = container.createDiv({ cls: "nv-tree" });
@@ -282,7 +304,7 @@ class NotionView extends ItemView {
     }
 
     const icon = row.createSpan({ cls: "nv-icon" });
-    setIcon(icon, node.file ? "file-text" : "folder");
+    setIcon(icon, node.folder ? "folder" : "file-text");
 
     row.createSpan({ cls: "nv-title", text: node.title });
 
@@ -346,8 +368,23 @@ class NotionView extends ItemView {
       i.setTitle("New sub-page").setIcon("plus").onClick(() => this.promptSubPage(node))
     );
     menu.addItem((i) =>
+      i.setTitle("New sub-section").setIcon("folder-plus").onClick(() => {
+        this.promptName("New section name", (raw) => {
+          void (async () => {
+            const dir = await this.ensureContainer(node);
+            await this.createSection(dir, raw);
+          })();
+        });
+      })
+    );
+    menu.addItem((i) =>
       i.setTitle("New sibling page").setIcon("copy-plus").onClick(() => {
         this.promptName("New page name", (raw) => void this.createPage(dirPathOf(node), raw));
+      })
+    );
+    menu.addItem((i) =>
+      i.setTitle("New sibling section").setIcon("folder-plus").onClick(() => {
+        this.promptName("New section name", (raw) => void this.createSection(dirPathOf(node), raw));
       })
     );
     menu.addItem((i) =>
@@ -460,6 +497,37 @@ class NotionView extends ItemView {
   }
 
   /**
+   * Create a section: a folder plus its same-name note (Notion export
+   * layout), ready to hold sub-pages, inside dir ("" = vault root).
+   */
+  private async createSection(dir: string, rawName: string): Promise<void> {
+    const name = sanitizeFileName(rawName) || "Untitled";
+    try {
+      const prefix = dir ? dir + "/" : "";
+      let base = name;
+      for (
+        let i = 2;
+        this.app.vault.getAbstractFileByPath(prefix + base) ||
+        this.app.vault.getAbstractFileByPath(`${prefix}${base}.md`);
+        i++
+      ) {
+        base = `${name} ${i}`;
+      }
+      await this.app.vault.createFolder(prefix + base);
+      const note = await this.app.vault.create(`${prefix}${base}.md`, "");
+      await this.appendLinkToParentNote(dir, note);
+      if (dir) this.plugin.expanded.add(dir);
+      this.plugin.expanded.add(prefix + base);
+      await this.plugin.persist();
+      await this.app.workspace.getLeaf(false).openFile(note);
+      new Notice(`Created section "${base}"`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      new Notice(`Failed to create section: ${msg}`);
+    }
+  }
+
+  /**
    * Create a new parent page beside `node`, then move `node` inside it —
    * turns a loose page into a child of a brand-new section.
    */
@@ -488,8 +556,8 @@ class NotionView extends ItemView {
     }
   }
 
-  private openMoveModal(node: PageNode): void {
-    const excludeKey = nodeKey(node);
+  private buildTargets(exclude: PageNode | null): MoveTarget[] {
+    const excludeKey = exclude ? nodeKey(exclude) : null;
     const targets: MoveTarget[] = [{ label: "/ (vault root)", node: null }];
     const walk = (nodes: PageNode[], chain: string): void => {
       for (const n of nodes) {
@@ -497,7 +565,7 @@ class NotionView extends ItemView {
         const label = chain ? `${chain} / ${n.title}` : n.title;
         const isExcluded =
           key === excludeKey ||
-          (node.folder !== null && key.startsWith(node.folder.path + "/"));
+          (exclude?.folder != null && key.startsWith(exclude.folder.path + "/"));
         if (!isExcluded) {
           targets.push({ label, node: n });
           walk(n.children, label);
@@ -505,8 +573,24 @@ class NotionView extends ItemView {
       }
     };
     walk(buildTree(this.app.vault.getRoot()), "");
-    new MoveTargetModal(this.app, targets, (target) => {
+    return targets;
+  }
+
+  private openMoveModal(node: PageNode): void {
+    new MoveTargetModal(this.app, this.buildTargets(node), (target) => {
       void this.moveIntoPage(node, target.node);
+    }).open();
+  }
+
+  /** Fuzzy-pick a parent page, then prompt for a name and create there. */
+  private pickParentThen(heading: string, create: (dir: string, raw: string) => void): void {
+    new MoveTargetModal(this.app, this.buildTargets(null), (target) => {
+      this.promptName(heading, (raw) => {
+        void (async () => {
+          const dir = target.node ? await this.ensureContainer(target.node) : "";
+          create(dir, raw);
+        })();
+      });
     }).open();
   }
 
