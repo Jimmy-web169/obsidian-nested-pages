@@ -272,6 +272,91 @@ const ICON_CATEGORIES: { label: string; icons: string[] }[] = [
   },
 ];
 
+/** Built-in emoji library, grouped Notion-style. */
+const EMOJI_CATEGORIES: { label: string; emoji: string[] }[] = [
+  {
+    label: "Smileys",
+    emoji: [
+      "😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣", "🙂", "😉", "😊", "😇",
+      "🥰", "😍", "🤩", "😘", "😋", "😜", "🤪", "🤔", "🤨", "😐", "😴", "🥱",
+      "😪", "😷", "🤒", "🤯", "😎", "🥳", "😤", "😢", "😭", "😱", "😨", "🤗",
+      "🤫", "🙄", "😳", "🥺", "😈", "👻", "💀", "🤖", "👽", "🎃",
+    ],
+  },
+  {
+    label: "People & gestures",
+    emoji: [
+      "👍", "👎", "👌", "✌️", "🤞", "🤟", "🤘", "🤙", "👋", "✋", "👏", "🙌",
+      "🤝", "🙏", "💪", "🫶", "👀", "👁️", "🧠", "🗣️", "👤", "👥", "🧑‍💻",
+      "👨‍💻", "👩‍💻", "🧑‍🎓", "🧑‍🏫", "🧑‍⚕️", "🧑‍🍳", "🧑‍🔧", "🕵️", "🦸",
+      "🧙", "🏃", "🧘", "💃", "🕺",
+    ],
+  },
+  {
+    label: "Animals & nature",
+    emoji: [
+      "🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮",
+      "🐷", "🐸", "🐵", "🐔", "🐧", "🐦", "🦆", "🦅", "🦉", "🐺", "🐴", "🦄",
+      "🐝", "🦋", "🐌", "🐞", "🐢", "🐍", "🐙", "🦀", "🐠", "🐬", "🐳", "🦈",
+      "🐘", "🦒", "🌵", "🎄", "🌲", "🌴", "🌱", "🌿", "☘️", "🍀", "🌸", "🌼",
+      "🌻", "🌹", "🍁", "🍂", "🍄", "🌍", "🌙", "⭐", "🌟", "✨", "⚡", "🔥",
+      "🌈", "☀️", "☁️", "❄️", "💧", "🌊",
+    ],
+  },
+  {
+    label: "Food & drink",
+    emoji: [
+      "🍎", "🍐", "🍊", "🍋", "🍌", "🍉", "🍇", "🍓", "🫐", "🍒", "🍑", "🥭",
+      "🍍", "🥥", "🥝", "🍅", "🥑", "🥦", "🥕", "🌽", "🌶️", "🥔", "🥐", "🍞",
+      "🧀", "🥚", "🍳", "🥓", "🥩", "🍗", "🍔", "🍟", "🍕", "🌭", "🥪", "🌮",
+      "🥗", "🍜", "🍣", "🍙", "🍦", "🍩", "🍪", "🎂", "🍰", "🧁", "🍫", "🍬",
+      "☕", "🍵", "🧋", "🥤", "🍺", "🍷", "🥂", "🍹",
+    ],
+  },
+  {
+    label: "Travel & places",
+    emoji: [
+      "🚗", "🚕", "🚌", "🏎️", "🚓", "🚑", "🚒", "🚚", "🚜", "🛵", "🏍️", "🚲",
+      "🛴", "🚂", "✈️", "🛫", "🚀", "🛸", "🚁", "⛵", "🚢", "⚓", "🗺️", "🧭",
+      "🏔️", "⛰️", "🌋", "🏕️", "🏖️", "🏝️", "🏜️", "🏟️", "🏛️", "🏗️", "🏠",
+      "🏡", "🏢", "🏥", "🏦", "🏨", "🏫", "🏰", "💒", "🗼", "🗽", "⛩️", "🕌",
+      "⛪", "🌃", "🌆", "🌉", "🎡", "🎢",
+    ],
+  },
+  {
+    label: "Activities",
+    emoji: [
+      "⚽", "🏀", "🏈", "⚾", "🎾", "🏐", "🎱", "🏓", "🏸", "🏒", "🥊", "🥋",
+      "⛳", "🏹", "🎣", "🥇", "🥈", "🥉", "🏆", "🎖️", "🎫", "🎪", "🤹", "🎭",
+      "🎨", "🎬", "🎤", "🎧", "🎼", "🎹", "🥁", "🎷", "🎺", "🎸", "🎻", "🎲",
+      "♟️", "🎮", "🕹️", "🎳", "🛹", "⛷️", "🏂", "🏋️", "🤸", "🚴", "🧗",
+    ],
+  },
+  {
+    label: "Objects",
+    emoji: [
+      "⌚", "📱", "💻", "⌨️", "🖥️", "🖨️", "🖱️", "💾", "💿", "📷", "📸", "📹",
+      "🎥", "📞", "☎️", "📺", "📻", "⏰", "⏳", "💡", "🔦", "🕯️", "💸", "💵",
+      "💰", "💳", "💎", "⚖️", "🧰", "🔧", "🔨", "⚒️", "🛠️", "⛏️", "🔩", "⚙️",
+      "🧲", "🛡️", "🔮", "🔭", "🔬", "💊", "💉", "🩺", "🌡️", "🧬", "🦠", "🧪",
+      "🧹", "🔑", "🗝️", "🚪", "🛋️", "🛏️", "🧸", "🎁", "🎈", "🎀", "🎊", "🎉",
+      "🪄", "📦", "📫", "📜", "📄", "📑", "📊", "📈", "📉", "📁", "📂", "🗂️",
+      "📅", "📆", "🗃️", "🗄️", "📋", "📏", "📐", "✂️", "🖊️", "🖋️", "✒️",
+      "🖌️", "🖍️", "📝", "✏️", "🔍", "🔎", "🔒", "🔓",
+    ],
+  },
+  {
+    label: "Symbols",
+    emoji: [
+      "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❣️", "💕",
+      "💖", "💘", "💝", "💯", "💢", "💥", "💫", "⭕", "❌", "⛔", "🚫", "✅",
+      "✔️", "➕", "➖", "➗", "✖️", "♾️", "❓", "❗", "⚠️", "🔱", "⚜️", "🔰",
+      "™️", "©️", "®️", "🔴", "🟠", "🟡", "🟢", "🔵", "🟣", "⚫", "⚪", "🟤",
+      "🔺", "🔻", "🔶", "🔷", "🔸", "🔹", "💠", "🔘",
+    ],
+  },
+];
+
 class IconPickerModal extends Modal {
   private current: string;
   private color: string;
@@ -297,11 +382,50 @@ class IconPickerModal extends Modal {
     contentEl.addClass("nv-icon-picker");
     contentEl.createEl("h3", { text: "Page icon" });
 
-    // Free-form input: emoji or image URL.
-    const input = contentEl.createEl("input", {
+    // Tabs: Icons / Emoji / Custom.
+    const tabsRow = contentEl.createDiv({ cls: "nv-tabs" });
+    const iconsPane = contentEl.createDiv();
+    const emojiPane = contentEl.createDiv();
+    const customPane = contentEl.createDiv();
+    const tabs: { btn: HTMLElement; pane: HTMLElement }[] = [];
+    const selectTab = (pane: HTMLElement): void => {
+      for (const t of tabs) {
+        t.btn.toggleClass("nv-tab-active", t.pane === pane);
+        t.pane.toggleClass("nv-hidden", t.pane !== pane);
+      }
+    };
+    const addTab = (label: string, pane: HTMLElement): void => {
+      const btn = tabsRow.createDiv({ cls: "nv-tab", text: label });
+      tabs.push({ btn, pane });
+      btn.addEventListener("click", () => selectTab(pane));
+    };
+    addTab("Icons", iconsPane);
+    addTab("Emoji", emojiPane);
+    addTab("Custom", customPane);
+    selectTab(
+      !this.current || this.current.startsWith("lucide:")
+        ? iconsPane
+        : isImageUrl(this.current)
+          ? customPane
+          : emojiPane
+    );
+
+    // ----- Emoji pane -----
+    const emojiSections = emojiPane.createDiv({ cls: "nv-icon-sections" });
+    for (const cat of EMOJI_CATEGORIES) {
+      emojiSections.createDiv({ cls: "nv-icon-cat-title", text: cat.label });
+      const grid = emojiSections.createDiv({ cls: "nv-icon-grid" });
+      for (const e of cat.emoji) {
+        const cell = grid.createDiv({ cls: "nv-icon-cell nv-emoji-cell", text: e });
+        cell.addEventListener("click", () => this.submit(e));
+      }
+    }
+
+    // ----- Custom pane: image URL (or anything typed, e.g. an emoji) -----
+    const input = customPane.createEl("input", {
       type: "text",
       cls: "nv-name-input",
-      attr: { placeholder: "🔥  or  https://example.com/icon.png" },
+      attr: { placeholder: "https://example.com/icon.png" },
     });
     if (!this.current.startsWith("lucide:")) input.value = this.current;
     input.addEventListener("keydown", (ev) => {
@@ -312,13 +436,14 @@ class IconPickerModal extends Modal {
         this.close();
       }
     });
-    contentEl.createDiv({
+    customPane.createDiv({
       cls: "nv-hint",
-      text: "Type an emoji or image URL and press Enter — or pick an icon below.",
+      text: "Paste an image URL (or type any emoji) and press Enter.",
     });
 
+    // ----- Icons pane -----
     // Color palette.
-    const colorRow = contentEl.createDiv({ cls: "nv-color-row" });
+    const colorRow = iconsPane.createDiv({ cls: "nv-color-row" });
     for (const c of ICON_COLORS) {
       const swatch = colorRow.createDiv({ cls: "nv-color-swatch", attr: { "aria-label": c.name } });
       if (c.value) swatch.style.backgroundColor = c.value;
@@ -333,14 +458,14 @@ class IconPickerModal extends Modal {
     }
 
     // Icon search.
-    const iconSearch = contentEl.createEl("input", {
+    const iconSearch = iconsPane.createEl("input", {
       type: "text",
       cls: "nv-name-input nv-icon-search",
       attr: { placeholder: "Search icons…" },
     });
 
     // Icon grid, grouped by category.
-    this.gridEl = contentEl.createDiv({ cls: "nv-icon-sections" });
+    this.gridEl = iconsPane.createDiv({ cls: "nv-icon-sections" });
     interface Section { titleEl: HTMLElement; cells: { name: string; el: HTMLElement }[] }
     const sections: Section[] = [];
     for (const cat of ICON_CATEGORIES) {

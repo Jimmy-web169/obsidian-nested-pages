@@ -114,6 +114,38 @@
 }
 
 /* Icon picker modal */
+.nv-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding-bottom: 6px;
+}
+
+.nv-tab {
+  padding: 4px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: var(--font-ui-small);
+  color: var(--text-muted);
+}
+
+.nv-tab:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.nv-tab.nv-tab-active {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+  font-weight: 600;
+}
+
+.nv-emoji-cell {
+  font-size: 18px;
+  line-height: 1;
+}
+
 .nv-color-row {
   display: flex;
   gap: 8px;
