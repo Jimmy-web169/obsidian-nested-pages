@@ -1,5 +1,15 @@
 .nv-container {
-  padding: 4px 0 24px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 4px 0 0;
+}
+
+/* Tree fills the rest of the sidebar so empty space is right-clickable. */
+.nv-tree {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 24px;
 }
 
 /* Header: search + new page */
@@ -78,6 +88,29 @@
 
 .nv-row:hover {
   background: var(--background-modifier-hover);
+}
+
+.nv-row.nv-selected {
+  background: var(--background-modifier-hover);
+  box-shadow: inset 2px 0 0 var(--interactive-accent);
+}
+
+.nv-icon-emoji {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.nv-icon-img {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  object-fit: cover;
+}
+
+.nv-hint {
+  margin-top: 8px;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
 }
 
 .nv-row.nv-drop {

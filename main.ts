@@ -16,9 +16,10 @@ const VIEW_TYPE = "notion-view";
 
 interface NotionViewData {
   expanded: string[];
+  icons: Record<string, string>;
 }
 
-const DEFAULT_DATA: NotionViewData = { expanded: [] };
+const DEFAULT_DATA: NotionViewData = { expanded: [], icons: {} };
 
 /**
  * A tree node. Two flavors, matching how the vault is organized:
@@ -97,6 +98,10 @@ function sanitizeFileName(name: string): string {
   return name.replace(/[\\/:#^|[\]?*"<>]/g, "").trim();
 }
 
+function isImageUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value);
+}
+
 class NamePromptModal extends Modal {
   private heading: string;
   private initial: string;
@@ -118,6 +123,49 @@ class NamePromptModal extends Modal {
       attr: { placeholder: "Untitled" },
     });
     input.value = this.initial;
+    setTimeout(() => {
+      input.focus();
+      input.select();
+    }, 0);
+    input.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        this.close();
+        this.onSubmit(input.value.trim());
+      } else if (ev.key === "Escape") {
+        this.close();
+      }
+    });
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
+  }
+}
+
+class IconPromptModal extends Modal {
+  private current: string;
+  private onSubmit: (value: string) => void;
+
+  constructor(app: App, current: string, onSubmit: (value: string) => void) {
+    super(app);
+    this.current = current;
+    this.onSubmit = onSubmit;
+  }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    contentEl.createEl("h3", { text: "Page icon" });
+    const input = contentEl.createEl("input", {
+      type: "text",
+      cls: "nv-name-input",
+      attr: { placeholder: "🔥  or  https://example.com/icon.png" },
+    });
+    input.value = this.current;
+    contentEl.createDiv({
+      cls: "nv-hint",
+      text: "Paste an emoji or an image URL. Leave empty to remove the icon.",
+    });
     setTimeout(() => {
       input.focus();
       input.select();
@@ -204,6 +252,7 @@ class NotionView extends ItemView {
   private refreshTimer: number | null = null;
   private nodeMap: Map<string, PageNode> = new Map();
   private dragKey: string | null = null;
+  private selection: Set<string> = new Set();
 
   constructor(leaf: WorkspaceLeaf, plugin: NotionViewPlugin) {
     super(leaf);
@@ -246,12 +295,16 @@ class NotionView extends ItemView {
 
     this.treeEl = container.createDiv({ cls: "nv-tree" });
 
-    // Right-click on empty space = act on the top level.
+    // Right-click / click on empty space = act on the top level.
     this.treeEl.addEventListener("contextmenu", (ev) => {
       const target = ev.target as HTMLElement;
       if (target.closest(".nv-row")) return;
       ev.preventDefault();
       this.showCreateMenu(ev, "");
+    });
+    this.treeEl.addEventListener("click", (ev) => {
+      const target = ev.target as HTMLElement;
+      if (!target.closest(".nv-row")) this.clearSelection();
     });
 
     // Drop on empty tree area = move to vault root.
@@ -267,9 +320,9 @@ class NotionView extends ItemView {
       this.treeEl?.removeClass("nv-drop-root");
       if (this.dragKey === null || ev.target !== this.treeEl) return;
       ev.preventDefault();
-      const node = this.nodeMap.get(this.dragKey);
+      const nodes = this.draggedNodes();
       this.dragKey = null;
-      if (node) void this.moveNode(node, "");
+      void this.moveNodes(nodes, null);
     });
 
     this.renderTree();
@@ -277,6 +330,8 @@ class NotionView extends ItemView {
     this.registerEvent(this.app.vault.on("create", () => this.scheduleRefresh()));
     this.registerEvent(this.app.vault.on("delete", () => this.scheduleRefresh()));
     this.registerEvent(this.app.vault.on("rename", () => this.scheduleRefresh()));
+    // Re-render when frontmatter (page icons) changes.
+    this.registerEvent(this.app.metadataCache.on("changed", () => this.scheduleRefresh()));
     this.registerEvent(
       this.app.workspace.on("file-open", (file) => {
         if (file) this.revealFile(file);
@@ -290,7 +345,7 @@ class NotionView extends ItemView {
     this.refreshTimer = window.setTimeout(() => {
       this.refreshTimer = null;
       this.renderTree();
-    }, 150);
+    }, 200);
   }
 
   private renderTree(): void {
@@ -305,6 +360,10 @@ class NotionView extends ItemView {
       return;
     }
     for (const node of nodes) this.renderNode(node, this.treeEl, 0, filtering);
+    // Drop selection entries that no longer exist.
+    for (const key of Array.from(this.selection)) {
+      if (!this.nodeMap.has(key)) this.selection.delete(key);
+    }
     this.updateActive();
   }
 
@@ -317,7 +376,9 @@ class NotionView extends ItemView {
     const item = parent.createDiv({ cls: "nv-item" });
     const row = item.createDiv({ cls: "nv-row" });
     row.style.paddingLeft = `${depth * 16 + 4}px`;
+    row.dataset.key = key;
     if (node.file) row.dataset.path = node.file.path;
+    if (this.selection.has(key)) row.addClass("nv-selected");
 
     const chevron = row.createSpan({ cls: "nv-chevron" });
     if (hasChildren) {
@@ -332,7 +393,20 @@ class NotionView extends ItemView {
     }
 
     const icon = row.createSpan({ cls: "nv-icon" });
-    setIcon(icon, node.file ? "file-text" : "folder");
+    const custom = this.customIconOf(node);
+    if (custom && isImageUrl(custom)) {
+      const img = icon.createEl("img", { cls: "nv-icon-img" });
+      img.src = custom;
+      img.addEventListener("error", () => {
+        img.remove();
+        setIcon(icon, node.file ? "file-text" : "folder");
+      });
+    } else if (custom) {
+      icon.addClass("nv-icon-emoji");
+      icon.setText(custom);
+    } else {
+      setIcon(icon, node.file ? "file-text" : "folder");
+    }
 
     row.createSpan({ cls: "nv-title", text: node.title });
 
@@ -346,7 +420,12 @@ class NotionView extends ItemView {
       })();
     });
 
-    row.addEventListener("click", () => {
+    row.addEventListener("click", (ev) => {
+      if (ev.metaKey || ev.ctrlKey) {
+        this.toggleSelect(key);
+        return;
+      }
+      this.clearSelection();
       if (node.file) {
         void this.app.workspace.getLeaf(false).openFile(node.file);
       } else if (hasChildren) {
@@ -356,7 +435,12 @@ class NotionView extends ItemView {
 
     row.addEventListener("contextmenu", (ev) => {
       ev.preventDefault();
-      this.showNodeMenu(ev, node);
+      if (this.selection.has(key) && this.selection.size > 1) {
+        this.showMultiMenu(ev);
+      } else {
+        this.clearSelection();
+        this.showNodeMenu(ev, node);
+      }
     });
 
     // --- Drag & drop: drag a row onto another row to nest it there ---
@@ -380,9 +464,9 @@ class NotionView extends ItemView {
       ev.preventDefault();
       row.removeClass("nv-drop");
       if (this.dragKey === null || this.dragKey === key) return;
-      const dragged = this.nodeMap.get(this.dragKey);
+      const nodes = this.draggedNodes();
       this.dragKey = null;
-      if (dragged) void this.moveIntoNode(dragged, node);
+      void this.moveNodes(nodes, node);
     });
 
     if (hasChildren && expanded) {
@@ -392,6 +476,53 @@ class NotionView extends ItemView {
       }
     }
   }
+
+  // ----- Selection -----
+
+  private toggleSelect(key: string): void {
+    if (this.selection.has(key)) this.selection.delete(key);
+    else this.selection.add(key);
+    this.rowEl(key)?.toggleClass("nv-selected", this.selection.has(key));
+  }
+
+  private clearSelection(): void {
+    for (const key of this.selection) this.rowEl(key)?.removeClass("nv-selected");
+    this.selection.clear();
+  }
+
+  private rowEl(key: string): HTMLElement | null {
+    return this.treeEl?.querySelector(`.nv-row[data-key="${CSS.escape(key)}"]`) ?? null;
+  }
+
+  private selectedNodes(): PageNode[] {
+    const nodes: PageNode[] = [];
+    for (const key of this.selection) {
+      const n = this.nodeMap.get(key);
+      if (n) nodes.push(n);
+    }
+    return nodes;
+  }
+
+  /** The set being dragged: the whole selection if dragging a selected row. */
+  private draggedNodes(): PageNode[] {
+    if (this.dragKey === null) return [];
+    if (this.selection.has(this.dragKey) && this.selection.size > 1) {
+      return this.selectedNodes();
+    }
+    const n = this.nodeMap.get(this.dragKey);
+    return n ? [n] : [];
+  }
+
+  /** Drop nodes whose ancestor is also in the list (they move with it). */
+  private dedupeNested(nodes: PageNode[]): PageNode[] {
+    const folderPaths = nodes.filter((n) => n.folder).map((n) => (n.folder as TFolder).path);
+    return nodes.filter((n) => {
+      const path = nodeKey(n);
+      return !folderPaths.some((fp) => path !== fp && path.startsWith(fp + "/"));
+    });
+  }
+
+  // ----- Menus -----
 
   /** "New page / New folder" — used by header +, row +, and empty space. */
   private showCreateMenu(ev: MouseEvent, dir: string): void {
@@ -433,14 +564,21 @@ class NotionView extends ItemView {
     );
     menu.addSeparator();
     menu.addItem((i) =>
+      i.setTitle("Change icon…").setIcon("smile").onClick(() => {
+        new IconPromptModal(this.app, this.customIconOf(node) ?? "", (value) => {
+          void this.setNodeIcon(node, value);
+        }).open();
+      })
+    );
+    menu.addItem((i) =>
       i.setTitle("Rename").setIcon("pencil").onClick(() => {
         this.promptName("Rename", node.title, (raw) => void this.renameNode(node, raw));
       })
     );
     menu.addItem((i) =>
       i.setTitle("Move to…").setIcon("corner-down-right").onClick(() => {
-        new MoveTargetModal(this.app, this.buildTargets(node), (target) => {
-          void this.moveIntoNode(node, target.node);
+        new MoveTargetModal(this.app, this.buildTargets([node]), (target) => {
+          void this.moveNodes([node], target.node);
         }).open();
       })
     );
@@ -453,15 +591,41 @@ class NotionView extends ItemView {
             this.app,
             `Delete "${node.title}" and ${n} item${n === 1 ? "" : "s"} inside it? They go to the trash.`,
             "Delete",
-            () => void this.deleteNode(node)
+            () => void this.deleteNodes([node])
           ).open();
         } else {
-          void this.deleteNode(node);
+          void this.deleteNodes([node]);
         }
       })
     );
     menu.showAtMouseEvent(ev);
   }
+
+  private showMultiMenu(ev: MouseEvent): void {
+    const nodes = this.dedupeNested(this.selectedNodes());
+    const count = this.selection.size;
+    const menu = new Menu();
+    menu.addItem((i) =>
+      i.setTitle(`Move ${count} items to…`).setIcon("corner-down-right").onClick(() => {
+        new MoveTargetModal(this.app, this.buildTargets(nodes), (target) => {
+          void this.moveNodes(nodes, target.node);
+        }).open();
+      })
+    );
+    menu.addItem((i) =>
+      i.setTitle(`Delete ${count} items`).setIcon("trash").onClick(() => {
+        new ConfirmModal(
+          this.app,
+          `Delete ${count} selected items (and everything inside them)? They go to the trash.`,
+          "Delete",
+          () => void this.deleteNodes(nodes)
+        ).open();
+      })
+    );
+    menu.showAtMouseEvent(ev);
+  }
+
+  // ----- Tree state -----
 
   private toggle(key: string): void {
     if (this.plugin.expanded.has(key)) this.plugin.expanded.delete(key);
@@ -499,6 +663,41 @@ class NotionView extends ItemView {
   private promptName(heading: string, initial: string, cb: (raw: string) => void): void {
     new NamePromptModal(this.app, heading, initial, cb).open();
   }
+
+  // ----- Icons -----
+
+  private customIconOf(node: PageNode): string | null {
+    if (node.file) {
+      const fm = this.app.metadataCache.getFileCache(node.file)?.frontmatter;
+      const v = fm?.icon;
+      return typeof v === "string" && v.trim() ? v.trim() : null;
+    }
+    if (node.folder) return this.plugin.icons[node.folder.path] ?? null;
+    return null;
+  }
+
+  private async setNodeIcon(node: PageNode, value: string): Promise<void> {
+    const v = value.trim();
+    try {
+      if (node.file) {
+        // Stored in frontmatter so the icon travels with the note.
+        await this.app.fileManager.processFrontMatter(node.file, (fm) => {
+          if (v) fm.icon = v;
+          else delete fm.icon;
+        });
+      } else if (node.folder) {
+        if (v) this.plugin.icons[node.folder.path] = v;
+        else delete this.plugin.icons[node.folder.path];
+        await this.plugin.persist();
+      }
+      this.scheduleRefresh();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      new Notice(`Failed to set icon: ${msg}`);
+    }
+  }
+
+  // ----- Create / rename / delete / move -----
 
   /**
    * Folder that holds this node's children. For a plain folder that's the
@@ -585,33 +784,37 @@ class NotionView extends ItemView {
     }
   }
 
-  /** Trash a node (md note + paired folder), syncing the parent note index. */
-  private async deleteNode(node: PageNode): Promise<void> {
-    try {
-      if (node.file) {
-        await this.removeLinkFromParentNote(dirPathOf(node), node.file);
-        await this.app.fileManager.trashFile(node.file);
+  /** Trash nodes (md note + paired folder), syncing parent note indexes. */
+  private async deleteNodes(nodes: PageNode[]): Promise<void> {
+    for (const node of nodes) {
+      try {
+        if (node.file) {
+          await this.removeLinkFromParentNote(dirPathOf(node), node.file);
+          await this.app.fileManager.trashFile(node.file);
+        }
+        if (node.folder) {
+          await this.app.fileManager.trashFile(node.folder);
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        new Notice(`Delete failed for "${node.title}": ${msg}`);
+        return;
       }
-      if (node.folder) {
-        await this.app.fileManager.trashFile(node.folder);
-      }
-      new Notice(`Deleted "${node.title}"`);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      new Notice(`Delete failed: ${msg}`);
     }
+    this.clearSelection();
+    new Notice(nodes.length === 1 ? `Deleted "${nodes[0].title}"` : `Deleted ${nodes.length} items`);
   }
 
-  private buildTargets(exclude: PageNode | null): MoveTarget[] {
-    const excludeKey = exclude ? nodeKey(exclude) : null;
+  private buildTargets(exclude: PageNode[]): MoveTarget[] {
+    const excludeKeys = new Set(exclude.map(nodeKey));
+    const excludeFolders = exclude.filter((n) => n.folder).map((n) => (n.folder as TFolder).path);
     const targets: MoveTarget[] = [{ label: "/ (vault root)", node: null }];
     const walk = (nodes: PageNode[], chain: string): void => {
       for (const n of nodes) {
         const key = nodeKey(n);
         const label = chain ? `${chain} / ${n.title}` : n.title;
         const isExcluded =
-          key === excludeKey ||
-          (exclude?.folder != null && key.startsWith(exclude.folder.path + "/"));
+          excludeKeys.has(key) || excludeFolders.some((fp) => key.startsWith(fp + "/"));
         if (!isExcluded) {
           targets.push({ label, node: n });
           walk(n.children, label);
@@ -622,11 +825,15 @@ class NotionView extends ItemView {
     return targets;
   }
 
-  /** Move `node` to become a child of `target` (null = vault root). */
-  private async moveIntoNode(node: PageNode, target: PageNode | null): Promise<void> {
+  /** Move nodes to become children of `target` (null = vault root). */
+  private async moveNodes(nodes: PageNode[], target: PageNode | null): Promise<void> {
+    if (nodes.length === 0) return;
     try {
       const dir = target ? await this.ensureContainer(target) : "";
-      await this.moveNode(node, dir);
+      for (const node of this.dedupeNested(nodes)) {
+        await this.moveNode(node, dir);
+      }
+      this.clearSelection();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       new Notice(`Move failed: ${msg}`);
@@ -728,12 +935,25 @@ class NotionView extends ItemView {
 
 export default class NotionViewPlugin extends Plugin {
   expanded: Set<string> = new Set();
+  icons: Record<string, string> = {};
 
   async onload(): Promise<void> {
     const data = ((await this.loadData()) ?? DEFAULT_DATA) as NotionViewData;
     this.expanded = new Set(data.expanded ?? []);
+    this.icons = data.icons ?? {};
 
     this.registerView(VIEW_TYPE, (leaf) => new NotionView(leaf, this));
+
+    // Keep folder icons attached across renames/moves.
+    this.registerEvent(
+      this.app.vault.on("rename", (file, oldPath) => {
+        if (this.icons[oldPath]) {
+          this.icons[file.path] = this.icons[oldPath];
+          delete this.icons[oldPath];
+          void this.persist();
+        }
+      })
+    );
 
     this.addRibbonIcon("panel-left", "Open Notion view", () => {
       void this.activateView();
@@ -751,7 +971,10 @@ export default class NotionViewPlugin extends Plugin {
   }
 
   async persist(): Promise<void> {
-    await this.saveData({ expanded: Array.from(this.expanded) } satisfies NotionViewData);
+    await this.saveData({
+      expanded: Array.from(this.expanded),
+      icons: this.icons,
+    } satisfies NotionViewData);
   }
 
   private async activateView(): Promise<void> {
