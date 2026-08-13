@@ -113,6 +113,58 @@
   font-size: var(--font-ui-smaller);
 }
 
+/* Icon picker modal */
+.nv-color-row {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0 4px;
+}
+
+.nv-color-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 1px solid var(--background-modifier-border);
+}
+
+.nv-color-default {
+  background: linear-gradient(135deg, var(--background-primary) 45%, var(--text-muted) 45%, var(--text-muted) 55%, var(--background-primary) 55%);
+}
+
+.nv-color-swatch.nv-color-selected {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 2px;
+}
+
+.nv-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 2px;
+  margin-top: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.nv-icon-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 0;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text-normal);
+}
+
+.nv-icon-cell:hover {
+  background: var(--background-modifier-hover);
+}
+
+.nv-icon-cell svg {
+  width: 18px;
+  height: 18px;
+}
+
 .nv-row.nv-drop {
   background: var(--interactive-accent-hover, var(--background-modifier-hover));
   outline: 2px solid var(--interactive-accent);

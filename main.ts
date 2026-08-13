@@ -143,41 +143,115 @@ class NamePromptModal extends Modal {
   }
 }
 
-class IconPromptModal extends Modal {
+/** Notion-ish color palette for the built-in icon library. */
+const ICON_COLORS: { name: string; value: string }[] = [
+  { name: "Default", value: "" },
+  { name: "Gray", value: "#9b9a97" },
+  { name: "Brown", value: "#8a6552" },
+  { name: "Orange", value: "#d9730d" },
+  { name: "Yellow", value: "#dfab01" },
+  { name: "Green", value: "#0f7b6c" },
+  { name: "Blue", value: "#0b6e99" },
+  { name: "Purple", value: "#6940a5" },
+  { name: "Pink", value: "#ad1a72" },
+  { name: "Red", value: "#e03e3e" },
+];
+
+/** Curated lucide icons available out of the box. */
+const ICON_LIBRARY: string[] = [
+  "file-text", "folder", "book", "book-open", "bookmark", "star",
+  "heart", "flame", "rocket", "brain", "lightbulb", "graduation-cap",
+  "code", "terminal", "database", "server", "cloud", "globe",
+  "cpu", "hard-drive", "link", "image", "camera", "music",
+  "video", "calendar", "clock", "flag", "tag", "pin",
+  "map", "home", "building", "briefcase", "wrench", "hammer",
+  "settings", "shield", "lock", "key", "mail", "message-circle",
+  "phone", "user", "users", "wallet", "bar-chart-2", "trending-up",
+  "gift", "coffee", "leaf", "sun", "moon", "zap",
+  "target", "trophy", "gamepad-2", "palette", "pencil", "search",
+];
+
+class IconPickerModal extends Modal {
   private current: string;
+  private color: string;
   private onSubmit: (value: string) => void;
+  private gridEl: HTMLElement | null = null;
 
   constructor(app: App, current: string, onSubmit: (value: string) => void) {
     super(app);
     this.current = current;
     this.onSubmit = onSubmit;
+    // Preselect the color if the current icon is a colored library icon.
+    const parts = current.startsWith("lucide:") ? current.split(":") : [];
+    this.color = parts[2] ?? "";
+  }
+
+  private submit(value: string): void {
+    this.close();
+    this.onSubmit(value);
   }
 
   onOpen(): void {
     const { contentEl } = this;
+    contentEl.addClass("nv-icon-picker");
     contentEl.createEl("h3", { text: "Page icon" });
+
+    // Free-form input: emoji or image URL.
     const input = contentEl.createEl("input", {
       type: "text",
       cls: "nv-name-input",
       attr: { placeholder: "🔥  or  https://example.com/icon.png" },
     });
-    input.value = this.current;
-    contentEl.createDiv({
-      cls: "nv-hint",
-      text: "Paste an emoji or an image URL. Leave empty to remove the icon.",
-    });
-    setTimeout(() => {
-      input.focus();
-      input.select();
-    }, 0);
+    if (!this.current.startsWith("lucide:")) input.value = this.current;
     input.addEventListener("keydown", (ev) => {
       if (ev.key === "Enter") {
         ev.preventDefault();
-        this.close();
-        this.onSubmit(input.value.trim());
+        this.submit(input.value.trim());
       } else if (ev.key === "Escape") {
         this.close();
       }
+    });
+    contentEl.createDiv({
+      cls: "nv-hint",
+      text: "Type an emoji or image URL and press Enter — or pick an icon below.",
+    });
+
+    // Color palette.
+    const colorRow = contentEl.createDiv({ cls: "nv-color-row" });
+    for (const c of ICON_COLORS) {
+      const swatch = colorRow.createDiv({ cls: "nv-color-swatch", attr: { "aria-label": c.name } });
+      if (c.value) swatch.style.backgroundColor = c.value;
+      else swatch.addClass("nv-color-default");
+      if (c.value === this.color) swatch.addClass("nv-color-selected");
+      swatch.addEventListener("click", () => {
+        this.color = c.value;
+        colorRow.querySelectorAll(".nv-color-selected").forEach((el) => el.removeClass("nv-color-selected"));
+        swatch.addClass("nv-color-selected");
+        this.recolorGrid();
+      });
+    }
+
+    // Icon grid.
+    this.gridEl = contentEl.createDiv({ cls: "nv-icon-grid" });
+    for (const name of ICON_LIBRARY) {
+      const cell = this.gridEl.createDiv({ cls: "nv-icon-cell", attr: { "aria-label": name } });
+      setIcon(cell, name);
+      cell.addEventListener("click", () => {
+        this.submit(this.color ? `lucide:${name}:${this.color}` : `lucide:${name}`);
+      });
+    }
+    this.recolorGrid();
+
+    // Footer.
+    const footer = contentEl.createDiv({ cls: "nv-confirm-row" });
+    const remove = footer.createEl("button", { text: "Remove icon" });
+    remove.addEventListener("click", () => this.submit(""));
+  }
+
+  private recolorGrid(): void {
+    if (!this.gridEl) return;
+    this.gridEl.querySelectorAll<HTMLElement>(".nv-icon-cell").forEach((el) => {
+      el.style.color = this.color || "";
     });
   }
 
@@ -394,7 +468,11 @@ class NotionView extends ItemView {
 
     const icon = row.createSpan({ cls: "nv-icon" });
     const custom = this.customIconOf(node);
-    if (custom && isImageUrl(custom)) {
+    if (custom && custom.startsWith("lucide:")) {
+      const [, name, color] = custom.split(":");
+      setIcon(icon, name || (node.file ? "file-text" : "folder"));
+      if (color) icon.style.color = color;
+    } else if (custom && isImageUrl(custom)) {
       const img = icon.createEl("img", { cls: "nv-icon-img" });
       img.src = custom;
       img.addEventListener("error", () => {
@@ -425,7 +503,11 @@ class NotionView extends ItemView {
         this.toggleSelect(key);
         return;
       }
+      // A plain click also selects the row, so a following Cmd/Ctrl-click
+      // on another row starts a multi-selection of both.
       this.clearSelection();
+      this.selection.add(key);
+      row.addClass("nv-selected");
       if (node.file) {
         void this.app.workspace.getLeaf(false).openFile(node.file);
       } else if (hasChildren) {
@@ -565,7 +647,7 @@ class NotionView extends ItemView {
     menu.addSeparator();
     menu.addItem((i) =>
       i.setTitle("Change icon…").setIcon("smile").onClick(() => {
-        new IconPromptModal(this.app, this.customIconOf(node) ?? "", (value) => {
+        new IconPickerModal(this.app, this.customIconOf(node) ?? "", (value) => {
           void this.setNodeIcon(node, value);
         }).open();
       })
