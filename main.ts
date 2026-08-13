@@ -21,8 +21,10 @@ interface NotionViewData {
 const DEFAULT_DATA: NotionViewData = { expanded: [] };
 
 /**
- * A "page" in the Notion sense: an md note, optionally paired with a
- * same-name sibling folder that holds its sub-pages (Notion export layout).
+ * A tree node. Two flavors, matching how the vault is organized:
+ * - page: an md note; in Notion-export layout it may be paired with a
+ *   same-name sibling folder that holds its sub-pages.
+ * - folder: a plain folder (no same-name note) that just groups notes.
  */
 interface PageNode {
   title: string;
@@ -85,17 +87,25 @@ function filterTree(nodes: PageNode[], query: string): PageNode[] {
   return out;
 }
 
+function countDescendants(node: PageNode): number {
+  let n = 0;
+  for (const c of node.children) n += 1 + countDescendants(c);
+  return n;
+}
+
 function sanitizeFileName(name: string): string {
   return name.replace(/[\\/:#^|[\]?*"<>]/g, "").trim();
 }
 
 class NamePromptModal extends Modal {
   private heading: string;
+  private initial: string;
   private onSubmit: (value: string) => void;
 
-  constructor(app: App, heading: string, onSubmit: (value: string) => void) {
+  constructor(app: App, heading: string, initial: string, onSubmit: (value: string) => void) {
     super(app);
     this.heading = heading;
+    this.initial = initial;
     this.onSubmit = onSubmit;
   }
 
@@ -107,7 +117,11 @@ class NamePromptModal extends Modal {
       cls: "nv-name-input",
       attr: { placeholder: "Untitled" },
     });
-    setTimeout(() => input.focus(), 0);
+    input.value = this.initial;
+    setTimeout(() => {
+      input.focus();
+      input.select();
+    }, 0);
     input.addEventListener("keydown", (ev) => {
       if (ev.key === "Enter") {
         ev.preventDefault();
@@ -116,6 +130,36 @@ class NamePromptModal extends Modal {
       } else if (ev.key === "Escape") {
         this.close();
       }
+    });
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
+  }
+}
+
+class ConfirmModal extends Modal {
+  private message: string;
+  private cta: string;
+  private onConfirm: () => void;
+
+  constructor(app: App, message: string, cta: string, onConfirm: () => void) {
+    super(app);
+    this.message = message;
+    this.cta = cta;
+    this.onConfirm = onConfirm;
+  }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    contentEl.createEl("p", { text: this.message });
+    const row = contentEl.createDiv({ cls: "nv-confirm-row" });
+    const cancel = row.createEl("button", { text: "Cancel" });
+    cancel.addEventListener("click", () => this.close());
+    const ok = row.createEl("button", { text: this.cta, cls: "mod-warning" });
+    ok.addEventListener("click", () => {
+      this.close();
+      this.onConfirm();
     });
   }
 
@@ -137,7 +181,7 @@ class MoveTargetModal extends FuzzySuggestModal<MoveTarget> {
     super(app);
     this.targets = targets;
     this.onChoose = onChoose;
-    this.setPlaceholder("Move to page…");
+    this.setPlaceholder("Move to…");
   }
 
   getItems(): MoveTarget[] {
@@ -196,35 +240,19 @@ class NotionView extends ItemView {
       this.renderTree();
     });
 
-    const newBtn = header.createDiv({ cls: "nv-new-btn", attr: { "aria-label": "New page or section" } });
+    const newBtn = header.createDiv({ cls: "nv-new-btn", attr: { "aria-label": "New…" } });
     setIcon(newBtn, "plus");
-    newBtn.addEventListener("click", (ev) => {
-      const menu = new Menu();
-      menu.addItem((i) =>
-        i.setTitle("New page (top level)").setIcon("file-plus").onClick(() => {
-          this.promptName("New page name", (raw) => void this.createPage("", raw));
-        })
-      );
-      menu.addItem((i) =>
-        i.setTitle("New section (top level)").setIcon("folder-plus").onClick(() => {
-          this.promptName("New section name", (raw) => void this.createSection("", raw));
-        })
-      );
-      menu.addSeparator();
-      menu.addItem((i) =>
-        i.setTitle("New page under…").setIcon("file-plus").onClick(() => {
-          this.pickParentThen("New page name", (dir, raw) => void this.createPage(dir, raw));
-        })
-      );
-      menu.addItem((i) =>
-        i.setTitle("New section under…").setIcon("folder-plus").onClick(() => {
-          this.pickParentThen("New section name", (dir, raw) => void this.createSection(dir, raw));
-        })
-      );
-      menu.showAtMouseEvent(ev);
-    });
+    newBtn.addEventListener("click", (ev) => this.showCreateMenu(ev, ""));
 
     this.treeEl = container.createDiv({ cls: "nv-tree" });
+
+    // Right-click on empty space = act on the top level.
+    this.treeEl.addEventListener("contextmenu", (ev) => {
+      const target = ev.target as HTMLElement;
+      if (target.closest(".nv-row")) return;
+      ev.preventDefault();
+      this.showCreateMenu(ev, "");
+    });
 
     // Drop on empty tree area = move to vault root.
     this.treeEl.addEventListener("dragover", (ev) => {
@@ -304,15 +332,18 @@ class NotionView extends ItemView {
     }
 
     const icon = row.createSpan({ cls: "nv-icon" });
-    setIcon(icon, node.folder ? "folder" : "file-text");
+    setIcon(icon, node.file ? "file-text" : "folder");
 
     row.createSpan({ cls: "nv-title", text: node.title });
 
-    const addBtn = row.createSpan({ cls: "nv-row-btn", attr: { "aria-label": "New sub-page" } });
+    const addBtn = row.createSpan({ cls: "nv-row-btn", attr: { "aria-label": "New inside" } });
     setIcon(addBtn, "plus");
     addBtn.addEventListener("click", (ev) => {
       ev.stopPropagation();
-      this.promptSubPage(node);
+      void (async () => {
+        const dir = await this.ensureContainer(node);
+        this.showCreateMenu(ev, dir);
+      })();
     });
 
     row.addEventListener("click", () => {
@@ -325,10 +356,10 @@ class NotionView extends ItemView {
 
     row.addEventListener("contextmenu", (ev) => {
       ev.preventDefault();
-      this.showMenu(ev, node);
+      this.showNodeMenu(ev, node);
     });
 
-    // --- Drag & drop: drag a page onto another page to nest it there ---
+    // --- Drag & drop: drag a row onto another row to nest it there ---
     row.draggable = true;
     row.addEventListener("dragstart", (ev) => {
       this.dragKey = key;
@@ -351,7 +382,7 @@ class NotionView extends ItemView {
       if (this.dragKey === null || this.dragKey === key) return;
       const dragged = this.nodeMap.get(this.dragKey);
       this.dragKey = null;
-      if (dragged) void this.moveIntoPage(dragged, node);
+      if (dragged) void this.moveIntoNode(dragged, node);
     });
 
     if (hasChildren && expanded) {
@@ -362,58 +393,73 @@ class NotionView extends ItemView {
     }
   }
 
-  private showMenu(ev: MouseEvent, node: PageNode): void {
+  /** "New page / New folder" — used by header +, row +, and empty space. */
+  private showCreateMenu(ev: MouseEvent, dir: string): void {
     const menu = new Menu();
     menu.addItem((i) =>
-      i.setTitle("New sub-page").setIcon("plus").onClick(() => this.promptSubPage(node))
+      i.setTitle("New page").setIcon("file-plus").onClick(() => {
+        this.promptName("New page name", "", (raw) => void this.createPage(dir, raw));
+      })
     );
     menu.addItem((i) =>
-      i.setTitle("New sub-section").setIcon("folder-plus").onClick(() => {
-        this.promptName("New section name", (raw) => {
+      i.setTitle("New folder").setIcon("folder-plus").onClick(() => {
+        this.promptName("New folder name", "", (raw) => void this.createFolder(dir, raw));
+      })
+    );
+    menu.showAtMouseEvent(ev);
+  }
+
+  private showNodeMenu(ev: MouseEvent, node: PageNode): void {
+    const menu = new Menu();
+    menu.addItem((i) =>
+      i.setTitle("New page").setIcon("file-plus").onClick(() => {
+        this.promptName("New page name", "", (raw) => {
           void (async () => {
             const dir = await this.ensureContainer(node);
-            await this.createSection(dir, raw);
+            await this.createPage(dir, raw);
           })();
         });
       })
     );
     menu.addItem((i) =>
-      i.setTitle("New sibling page").setIcon("copy-plus").onClick(() => {
-        this.promptName("New page name", (raw) => void this.createPage(dirPathOf(node), raw));
+      i.setTitle("New folder").setIcon("folder-plus").onClick(() => {
+        this.promptName("New folder name", "", (raw) => {
+          void (async () => {
+            const dir = await this.ensureContainer(node);
+            await this.createFolder(dir, raw);
+          })();
+        });
       })
-    );
-    menu.addItem((i) =>
-      i.setTitle("New sibling section").setIcon("folder-plus").onClick(() => {
-        this.promptName("New section name", (raw) => void this.createSection(dirPathOf(node), raw));
-      })
-    );
-    menu.addItem((i) =>
-      i.setTitle("Wrap in new parent page…").setIcon("folder-input").onClick(() => {
-        this.promptName("New parent page name", (raw) => void this.wrapInParent(node, raw));
-      })
-    );
-    menu.addItem((i) =>
-      i.setTitle("Move to page…").setIcon("corner-down-right").onClick(() => this.openMoveModal(node))
     );
     menu.addSeparator();
-    if (node.file) {
-      const file = node.file;
-      menu.addItem((i) =>
-        i.setTitle("Open in new tab").setIcon("file-plus").onClick(() => {
-          void this.app.workspace.getLeaf("tab").openFile(file);
-        })
-      );
-    }
-    const target = node.file ?? node.folder;
-    if (target) {
-      menu.addItem((i) =>
-        i.setTitle("Reveal in file explorer").setIcon("folder-open").onClick(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const explorer = (this.app as any).internalPlugins?.plugins?.["file-explorer"]?.instance;
-          explorer?.revealInFolder?.(target);
-        })
-      );
-    }
+    menu.addItem((i) =>
+      i.setTitle("Rename").setIcon("pencil").onClick(() => {
+        this.promptName("Rename", node.title, (raw) => void this.renameNode(node, raw));
+      })
+    );
+    menu.addItem((i) =>
+      i.setTitle("Move to…").setIcon("corner-down-right").onClick(() => {
+        new MoveTargetModal(this.app, this.buildTargets(node), (target) => {
+          void this.moveIntoNode(node, target.node);
+        }).open();
+      })
+    );
+    menu.addSeparator();
+    menu.addItem((i) =>
+      i.setTitle("Delete").setIcon("trash").onClick(() => {
+        const n = countDescendants(node);
+        if (n > 0) {
+          new ConfirmModal(
+            this.app,
+            `Delete "${node.title}" and ${n} item${n === 1 ? "" : "s"} inside it? They go to the trash.`,
+            "Delete",
+            () => void this.deleteNode(node)
+          ).open();
+        } else {
+          void this.deleteNode(node);
+        }
+      })
+    );
     menu.showAtMouseEvent(ev);
   }
 
@@ -450,20 +496,15 @@ class NotionView extends ItemView {
     row?.addClass("nv-active");
   }
 
-  private promptName(heading: string, cb: (raw: string) => void): void {
-    new NamePromptModal(this.app, heading, cb).open();
+  private promptName(heading: string, initial: string, cb: (raw: string) => void): void {
+    new NamePromptModal(this.app, heading, initial, cb).open();
   }
 
-  private promptSubPage(node: PageNode): void {
-    this.promptName("New page name", (raw) => {
-      void (async () => {
-        const dir = await this.ensureContainer(node);
-        await this.createPage(dir, raw);
-      })();
-    });
-  }
-
-  /** Folder that holds this page's children, created on demand. */
+  /**
+   * Folder that holds this node's children. For a plain folder that's the
+   * folder itself; for a page it's the Notion-style paired folder, created
+   * on demand.
+   */
   private async ensureContainer(node: PageNode): Promise<string> {
     if (node.folder) return node.folder.path;
     const file = node.file as TFile;
@@ -496,63 +537,68 @@ class NotionView extends ItemView {
     }
   }
 
-  /**
-   * Create a section: a folder plus its same-name note (Notion export
-   * layout), ready to hold sub-pages, inside dir ("" = vault root).
-   */
-  private async createSection(dir: string, rawName: string): Promise<void> {
+  /** Create a plain folder inside dir ("" = vault root). */
+  private async createFolder(dir: string, rawName: string): Promise<void> {
     const name = sanitizeFileName(rawName) || "Untitled";
     try {
       const prefix = dir ? dir + "/" : "";
-      let base = name;
-      for (
-        let i = 2;
-        this.app.vault.getAbstractFileByPath(prefix + base) ||
-        this.app.vault.getAbstractFileByPath(`${prefix}${base}.md`);
-        i++
-      ) {
-        base = `${name} ${i}`;
+      let path = `${prefix}${name}`;
+      for (let i = 2; this.app.vault.getAbstractFileByPath(path); i++) {
+        path = `${prefix}${name} ${i}`;
       }
-      await this.app.vault.createFolder(prefix + base);
-      const note = await this.app.vault.create(`${prefix}${base}.md`, "");
-      await this.appendLinkToParentNote(dir, note);
+      await this.app.vault.createFolder(path);
       if (dir) this.plugin.expanded.add(dir);
-      this.plugin.expanded.add(prefix + base);
+      this.plugin.expanded.add(path);
       await this.plugin.persist();
-      await this.app.workspace.getLeaf(false).openFile(note);
-      new Notice(`Created section "${base}"`);
+      new Notice(`Created folder "${name}"`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      new Notice(`Failed to create section: ${msg}`);
+      new Notice(`Failed to create folder: ${msg}`);
     }
   }
 
-  /**
-   * Create a new parent page beside `node`, then move `node` inside it —
-   * turns a loose page into a child of a brand-new section.
-   */
-  private async wrapInParent(node: PageNode, rawName: string): Promise<void> {
-    const name = sanitizeFileName(rawName) || "Untitled";
+  /** Rename a node: md note and paired folder stay in sync. */
+  private async renameNode(node: PageNode, rawName: string): Promise<void> {
+    const name = sanitizeFileName(rawName);
+    if (!name || name === node.title) return;
+    const base = dirPathOf(node);
+    const prefix = base ? base + "/" : "";
+    if (
+      (node.file && this.app.vault.getAbstractFileByPath(`${prefix}${name}.md`)) ||
+      (node.folder && this.app.vault.getAbstractFileByPath(prefix + name))
+    ) {
+      new Notice(`"${name}" already exists here`);
+      return;
+    }
     try {
-      const base = dirPathOf(node);
-      const prefix = base ? base + "/" : "";
-      if (
-        this.app.vault.getAbstractFileByPath(`${prefix}${name}`) ||
-        this.app.vault.getAbstractFileByPath(`${prefix}${name}.md`)
-      ) {
-        new Notice(`"${name}" already exists here`);
-        return;
+      // renameFile updates every link pointing at the renamed note/folder.
+      if (node.file) {
+        await this.app.fileManager.renameFile(node.file, `${prefix}${name}.md`);
       }
-      await this.app.vault.createFolder(`${prefix}${name}`);
-      const parentNote = await this.app.vault.create(`${prefix}${name}.md`, "");
-      await this.moveNode(node, `${prefix}${name}`);
-      this.plugin.expanded.add(`${prefix}${name}`);
-      await this.plugin.persist();
-      await this.app.workspace.getLeaf(false).openFile(parentNote);
-      new Notice(`Created parent "${name}"`);
+      if (node.folder) {
+        await this.app.fileManager.renameFile(node.folder, prefix + name);
+      }
+      new Notice(`Renamed to "${name}"`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      new Notice(`Failed to create parent: ${msg}`);
+      new Notice(`Rename failed: ${msg}`);
+    }
+  }
+
+  /** Trash a node (md note + paired folder), syncing the parent note index. */
+  private async deleteNode(node: PageNode): Promise<void> {
+    try {
+      if (node.file) {
+        await this.removeLinkFromParentNote(dirPathOf(node), node.file);
+        await this.app.fileManager.trashFile(node.file);
+      }
+      if (node.folder) {
+        await this.app.fileManager.trashFile(node.folder);
+      }
+      new Notice(`Deleted "${node.title}"`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      new Notice(`Delete failed: ${msg}`);
     }
   }
 
@@ -576,26 +622,8 @@ class NotionView extends ItemView {
     return targets;
   }
 
-  private openMoveModal(node: PageNode): void {
-    new MoveTargetModal(this.app, this.buildTargets(node), (target) => {
-      void this.moveIntoPage(node, target.node);
-    }).open();
-  }
-
-  /** Fuzzy-pick a parent page, then prompt for a name and create there. */
-  private pickParentThen(heading: string, create: (dir: string, raw: string) => void): void {
-    new MoveTargetModal(this.app, this.buildTargets(null), (target) => {
-      this.promptName(heading, (raw) => {
-        void (async () => {
-          const dir = target.node ? await this.ensureContainer(target.node) : "";
-          create(dir, raw);
-        })();
-      });
-    }).open();
-  }
-
   /** Move `node` to become a child of `target` (null = vault root). */
-  private async moveIntoPage(node: PageNode, target: PageNode | null): Promise<void> {
+  private async moveIntoNode(node: PageNode, target: PageNode | null): Promise<void> {
     try {
       const dir = target ? await this.ensureContainer(target) : "";
       await this.moveNode(node, dir);
@@ -605,10 +633,10 @@ class NotionView extends ItemView {
     }
   }
 
-  /** Move a page (md + paired folder) into `dir` ("" = vault root). */
+  /** Move a node (md note + paired folder) into `dir` ("" = vault root). */
   private async moveNode(node: PageNode, dir: string): Promise<void> {
     if (node.folder && (dir === node.folder.path || dir.startsWith(node.folder.path + "/"))) {
-      new Notice("Cannot move a page into itself");
+      new Notice("Cannot move into itself");
       return;
     }
     const oldDir = dirPathOf(node);
@@ -654,7 +682,11 @@ class NotionView extends ItemView {
     return note instanceof TFile ? note : null;
   }
 
-  /** Keep the Notion-style index in sync: append a link in the parent note. */
+  /**
+   * Notion-style index sync: if the containing folder has a same-name note,
+   * append a link to the new/moved page there. Plain folders (no paired
+   * note) are left alone.
+   */
   private async appendLinkToParentNote(dir: string, file: TFile): Promise<void> {
     const parentNote = this.parentNoteOf(dir);
     if (!parentNote) return;

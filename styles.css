@@ -190,3 +190,11 @@
   padding: 6px 8px;
   font-size: var(--font-ui-medium);
 }
+
+/* Confirm modal */
+.nv-confirm-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
