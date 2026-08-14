@@ -635,7 +635,7 @@ class NotionView extends ItemView {
   }
 
   getIcon(): string {
-    return "panel-left";
+    return "list-tree";
   }
 
   async onOpen(): Promise<void> {
@@ -1330,7 +1330,7 @@ export default class NotionViewPlugin extends Plugin {
       })
     );
 
-    this.addRibbonIcon("panel-left", "Open Notion view", () => {
+    this.addRibbonIcon("list-tree", "Open Notion view", () => {
       void this.activateView();
     });
 
