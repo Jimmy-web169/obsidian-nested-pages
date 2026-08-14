@@ -12,14 +12,14 @@ import {
   setIcon,
 } from "obsidian";
 
-const VIEW_TYPE = "notion-view";
+const VIEW_TYPE = "nested-pages";
 
-interface NotionViewData {
+interface NestedPagesData {
   expanded: string[];
   icons: Record<string, string>;
 }
 
-const DEFAULT_DATA: NotionViewData = { expanded: [], icons: {} };
+const DEFAULT_DATA: NestedPagesData = { expanded: [], icons: {} };
 
 /**
  * A tree node. Two flavors, matching how the vault is organized:
@@ -612,8 +612,8 @@ class MoveTargetModal extends FuzzySuggestModal<MoveTarget> {
   }
 }
 
-class NotionView extends ItemView {
-  private plugin: NotionViewPlugin;
+class NestedPagesView extends ItemView {
+  private plugin: NestedPagesPlugin;
   private treeEl: HTMLElement | null = null;
   private query = "";
   private refreshTimer: number | null = null;
@@ -621,7 +621,7 @@ class NotionView extends ItemView {
   private dragKey: string | null = null;
   private selection: Set<string> = new Set();
 
-  constructor(leaf: WorkspaceLeaf, plugin: NotionViewPlugin) {
+  constructor(leaf: WorkspaceLeaf, plugin: NestedPagesPlugin) {
     super(leaf);
     this.plugin = plugin;
   }
@@ -631,7 +631,7 @@ class NotionView extends ItemView {
   }
 
   getDisplayText(): string {
-    return "Notion view";
+    return "Nested pages";
   }
 
   getIcon(): string {
@@ -1308,16 +1308,16 @@ class NotionView extends ItemView {
   }
 }
 
-export default class NotionViewPlugin extends Plugin {
+export default class NestedPagesPlugin extends Plugin {
   expanded: Set<string> = new Set();
   icons: Record<string, string> = {};
 
   async onload(): Promise<void> {
-    const data = ((await this.loadData()) ?? DEFAULT_DATA) as NotionViewData;
+    const data = ((await this.loadData()) ?? DEFAULT_DATA) as NestedPagesData;
     this.expanded = new Set(data.expanded ?? []);
     this.icons = data.icons ?? {};
 
-    this.registerView(VIEW_TYPE, (leaf) => new NotionView(leaf, this));
+    this.registerView(VIEW_TYPE, (leaf) => new NestedPagesView(leaf, this));
 
     // Keep folder icons attached across renames/moves.
     this.registerEvent(
@@ -1330,13 +1330,13 @@ export default class NotionViewPlugin extends Plugin {
       })
     );
 
-    this.addRibbonIcon("list-tree", "Open Notion view", () => {
+    this.addRibbonIcon("list-tree", "Open nested pages", () => {
       void this.activateView();
     });
 
     this.addCommand({
-      id: "open-notion-view",
-      name: "Open Notion view",
+      id: "open-nested-pages",
+      name: "Open nested pages",
       callback: () => void this.activateView(),
     });
   }
@@ -1349,7 +1349,7 @@ export default class NotionViewPlugin extends Plugin {
     await this.saveData({
       expanded: Array.from(this.expanded),
       icons: this.icons,
-    } satisfies NotionViewData);
+    } satisfies NestedPagesData);
   }
 
   private async activateView(): Promise<void> {
