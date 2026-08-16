@@ -5,6 +5,7 @@ import {
   Menu,
   Modal,
   Notice,
+  Platform,
   Plugin,
   TFile,
   TFolder,
@@ -619,6 +620,8 @@ class NestedPagesView extends ItemView {
   private refreshTimer: number | null = null;
   private nodeMap: Map<string, PageNode> = new Map();
   private dragKey: string | null = null;
+  /** After a long-press opens a menu, ignore the click the touch release fires */
+  private suppressClickUntil = 0;
   private selection: Set<string> = new Set();
 
   constructor(leaf: WorkspaceLeaf, plugin: NestedPagesPlugin) {
@@ -662,14 +665,17 @@ class NestedPagesView extends ItemView {
 
     this.treeEl = container.createDiv({ cls: "nv-tree" });
 
-    // Right-click / click on empty space = act on the top level.
-    this.treeEl.addEventListener("contextmenu", (ev) => {
-      const target = ev.target as HTMLElement;
-      if (target.closest(".nv-row")) return;
+    // Right-click / long-press on empty space = act on the top level.
+    const emptySpaceMenu = (ev: MouseEvent, target?: HTMLElement) => {
+      const t = target ?? (ev.target as HTMLElement | null);
+      if (t && t.closest(".nv-row")) return;
       ev.preventDefault();
       this.showCreateMenu(ev, "");
-    });
+    };
+    this.treeEl.addEventListener("contextmenu", (ev) => emptySpaceMenu(ev));
+    this.addLongPress(this.treeEl, (ev, target) => emptySpaceMenu(ev, target));
     this.treeEl.addEventListener("click", (ev) => {
+      if (Date.now() < this.suppressClickUntil) return;
       const target = ev.target as HTMLElement;
       if (!target.closest(".nv-row")) this.clearSelection();
     });
@@ -792,6 +798,7 @@ class NestedPagesView extends ItemView {
     });
 
     row.addEventListener("click", (ev) => {
+      if (Date.now() < this.suppressClickUntil) return;
       if (ev.metaKey || ev.ctrlKey) {
         this.toggleSelect(key);
         return;
@@ -808,7 +815,7 @@ class NestedPagesView extends ItemView {
       }
     });
 
-    row.addEventListener("contextmenu", (ev) => {
+    const rowMenu = (ev: MouseEvent) => {
       ev.preventDefault();
       if (this.selection.has(key) && this.selection.size > 1) {
         this.showMultiMenu(ev);
@@ -816,7 +823,10 @@ class NestedPagesView extends ItemView {
         this.clearSelection();
         this.showNodeMenu(ev, node);
       }
-    });
+    };
+    row.addEventListener("contextmenu", rowMenu);
+    // Mobile: long-press = right-click.
+    this.addLongPress(row, (ev) => rowMenu(ev));
 
     // --- Drag & drop: drag a row onto another row to nest it there ---
     row.draggable = true;
@@ -863,6 +873,59 @@ class NestedPagesView extends ItemView {
   private clearSelection(): void {
     for (const key of this.selection) this.rowEl(key)?.removeClass("nv-selected");
     this.selection.clear();
+  }
+
+  /**
+   * Mobile only: fire cb after a 450ms still press, mirroring desktop
+   * right-click. The click fired on touch release is suppressed.
+   */
+  private addLongPress(
+    el: HTMLElement,
+    cb: (ev: MouseEvent, target: HTMLElement) => void
+  ): void {
+    if (!Platform.isMobile) return;
+    let timer: number | null = null;
+    let startX = 0;
+    let startY = 0;
+    let target: HTMLElement | null = null;
+    const cancel = () => {
+      if (timer !== null) {
+        window.clearTimeout(timer);
+        timer = null;
+      }
+    };
+    el.addEventListener(
+      "touchstart",
+      (ev: TouchEvent) => {
+        const t = ev.touches[0];
+        if (!t) return;
+        startX = t.clientX;
+        startY = t.clientY;
+        target = t.target instanceof HTMLElement ? t.target : el;
+        cancel();
+        timer = window.setTimeout(() => {
+          timer = null;
+          this.suppressClickUntil = Date.now() + 700;
+          cb(
+            new MouseEvent("contextmenu", { clientX: startX, clientY: startY }),
+            target ?? el
+          );
+        }, 450);
+      },
+      { passive: true }
+    );
+    el.addEventListener(
+      "touchmove",
+      (ev: TouchEvent) => {
+        const t = ev.touches[0];
+        if (!t || Math.abs(t.clientX - startX) > 10 || Math.abs(t.clientY - startY) > 10) {
+          cancel();
+        }
+      },
+      { passive: true }
+    );
+    el.addEventListener("touchend", cancel);
+    el.addEventListener("touchcancel", cancel);
   }
 
   private rowEl(key: string): HTMLElement | null {
