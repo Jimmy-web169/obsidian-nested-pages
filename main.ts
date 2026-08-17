@@ -1106,7 +1106,8 @@ class NestedPagesView extends ItemView {
 
   private customIconOf(node: PageNode): string | null {
     if (node.file) {
-      const fm = this.app.metadataCache.getFileCache(node.file)?.frontmatter;
+      const fm: Record<string, unknown> | undefined =
+        this.app.metadataCache.getFileCache(node.file)?.frontmatter;
       const v = fm?.icon;
       return typeof v === "string" && v.trim() ? v.trim() : null;
     }
@@ -1119,7 +1120,7 @@ class NestedPagesView extends ItemView {
     try {
       if (node.file) {
         // Stored in frontmatter so the icon travels with the note.
-        await this.app.fileManager.processFrontMatter(node.file, (fm) => {
+        await this.app.fileManager.processFrontMatter(node.file, (fm: Record<string, unknown>) => {
           if (v) fm.icon = v;
           else delete fm.icon;
         });

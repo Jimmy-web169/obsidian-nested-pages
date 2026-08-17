@@ -1,6 +1,6 @@
 {
   "name": "nested-pages",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Notion-style page tree sidebar for Obsidian \u2014 merges note + same-name folder into a single expandable page",
   "main": "main.js",
   "scripts": {

@@ -1,7 +1,7 @@
 {
   "id": "nested-pages",
   "name": "Nested Pages",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "minAppVersion": "1.7.2",
   "description": "Browse and organize notes in a Notion-style page tree: a note and its same-name folder act as one nested page, with sub-page creation, drag-and-drop, icons, and filtering.",
   "author": "Jimmy-web169",
